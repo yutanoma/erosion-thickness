@@ -18,15 +18,13 @@ def burn():
         if len(unburnedVertices) == 0:
             break
 
-        if iterc % 500 == 0:
-            print 'burn: ', iterc
-
 
         vertexIndex = unburnedVertices['time'].idxmin()
 
-
-
         vertex = vertices.loc[vertexIndex]
+
+        if iterc % 500 == 0:
+            print 'burn: ', iterc, 'left: ', len(unburnedVertices), 'time:', vertex['time']
 
         if (vertex['primeSector'] != None):
             oldVal = vertex['sectorBurned']
@@ -51,12 +49,16 @@ def burn():
                 # 両側の辺を共有するunburnedなsectorがいるかどうか
                 firstOK = False
                 lastOK = False
-                for j, _sector in enumerate(vertex['sectors']):
+
+                _unburnedSectorIndexes = [i for i, x in enumerate(vertex['sectorBurned']) if not x]
+
+                for j in _unburnedSectorIndexes:
+                    _sector = vertex['sectors'][j]
                     if (i == j):
                         continue
-                    if (_sector[0] == sector[0]) and not vertex['sectorBurned'][j]:
+                    if (_sector[0] == sector[0] or _sector[-1] == sector[0]) and not vertex['sectorBurned'][j]:
                         firstOK = True
-                    if (_sector[-1] == sector[-1]) and not vertex['sectorBurned'][j]:
+                    if (_sector[-1] == sector[-1] or _sector[0] == sector[-1]) and not vertex['sectorBurned'][j]:
                         lastOK = True
                 if (firstOK and lastOK):
                     burnFlag = False
@@ -78,11 +80,15 @@ def burn():
 
                 vertices.iat[vertexIndex, vertices.columns.get_loc('sectorPrimeArc')] = sectorPrimeArc
 
+        vertex = vertices.loc[vertexIndex]
+
         unburnedSectorIndexes = [i for i, x in enumerate(vertex['sectorBurned']) if not x]
         unburnedSectors = [vertex['sectors'][i] for i in unburnedSectorIndexes if True]
         
         if (len(unburnedSectors) == 0):
             vertices.iat[vertexIndex, vertices.columns.get_loc('burned')] = True
+
+            vertex = vertices.loc[vertexIndex]
 
             endNodes = list(chain.from_iterable(vertex['sectors']))
 
@@ -126,10 +132,26 @@ def burn():
                             vertices.iat[endNodeIndex, vertices.columns.get_loc('primeSector')] = sectorIdx
 
         else:
-            unburnedSectorTimes = [vertex['sectorTime'][i] for i in unburnedSectorIndexes if True]
-            minVal = min(unburnedSectorTimes)
+            # 無限ループ防止のため、最小値を取っているが今回消されなかったものは、それ以外のもののうちの最小値に強制的に合わせる。
+            unburnedSectorTimes = [vertex['sectorTime'][i] for i in unburnedSectorIndexes if vertex['time'] < vertex['sectorTime'][i]]
+
+            minVal = float('inf')
+
+            if (len(unburnedSectorTimes) > 0):
+                minVal = min(unburnedSectorTimes)
+
             vertices.iat[vertexIndex, vertices.columns.get_loc('time')] = minVal
-            vertices.iat[vertexIndex, vertices.columns.get_loc('primeSector')] = unburnedSectorTimes.index(minVal)
+
+            # minValを下回ったものに関しては強制的にminValに揃える
+            newSectorTime = vertex['sectorTime']
+
+            for i in unburnedSectorIndexes:
+                if (newSectorTime[i] <= minVal):
+                    newSectorTime[i] = minVal
+
+            vertices.iat[vertexIndex, vertices.columns.get_loc('sectorTime')] = newSectorTime
+
+            vertices.iat[vertexIndex, vertices.columns.get_loc('primeSector')] = newSectorTime.index(minVal)
 
     vertices.to_pickle('./tmp/burned-vertices.pickle')
 
