@@ -25,10 +25,19 @@ def burn():
 
         if iterc % 500 == 0:
             print 'burn: ', iterc, 'left: ', len(unburnedVertices), 'time:', vertex['time']
+        
+        if vertex['time'] == float('inf'):
+            break
 
         if (vertex['primeSector'] != None):
+            # primeSector以外にも、timeが同じものは存在するので、それらを全て燃やす
+            minIndexes = [i for i, rawSectorTime in enumerate(vertex['sectorTime']) if vertex['time'] >= rawSectorTime]
+
             oldVal = vertex['sectorBurned']
-            oldVal[vertex['primeSector']] = True
+
+            for minIndex in minIndexes:
+                oldVal[minIndex] = True
+
             vertices.iat[vertexIndex, vertices.columns.get_loc('sectorBurned')] = oldVal
 
         for i, sector in enumerate(vertex['sectors']):
@@ -95,41 +104,41 @@ def burn():
             for endNodeIndex in endNodes:
                 endNode = vertices.loc[endNodeIndex]
                 endNodeSectors = endNode['sectors']
-                sectorIdx = None
+                sectorIdxs = []
 
                 for idx, ens in enumerate(endNodeSectors):
                     if vertexIndex in ens:
-                        sectorIdx = idx
-                        break
+                        sectorIdxs.append(idx)
 
-                if sectorIdx == None:
+                if len(sectorIdxs) == None:
                     raise 'sector not found'
-    
-                sectorBurned = endNode['sectorBurned'][sectorIdx]
 
-                if not endNode['burned'] and not sectorBurned:
-                    here = endNode.values[:3].reshape([1, 3]).astype(np.float32)
-                    there = vertex.values[:3].reshape([1, 3]).astype(np.float32)
-                    length = np.linalg.norm(here - there)
+                for sectorIdx in sectorIdxs:
+                    sectorBurned = endNode['sectorBurned'][sectorIdx]
 
-                    h = length + vertex['time']
+                    if not endNode['burned'] and not sectorBurned:
+                        here = endNode.values[:3].reshape([1, 3]).astype(np.float32)
+                        there = vertex.values[:3].reshape([1, 3]).astype(np.float32)
+                        length = np.linalg.norm(here - there)
 
-                    endNodeSectorTime = endNode['sectorTime'][sectorIdx]
+                        h = length + vertex['time']
 
-                    if h < endNodeSectorTime:
-                        oldVals = endNode['sectorTime']
-                        oldVals[sectorIdx] = h
+                        endNodeSectorTime = endNode['sectorTime'][sectorIdx]
 
-                        vertices.iat[endNodeIndex, vertices.columns.get_loc('sectorTime')] = oldVals
+                        if h < endNodeSectorTime:
+                            oldVals = endNode['sectorTime']
+                            oldVals[sectorIdx] = h
 
-                        oldPrimeArcs = endNode['sectorPrimeArc']
-                        oldPrimeArcs[sectorIdx] = vertexIndex
+                            vertices.iat[endNodeIndex, vertices.columns.get_loc('sectorTime')] = oldVals
 
-                        vertices.iat[endNodeIndex, vertices.columns.get_loc('sectorPrimeArc')] = oldPrimeArcs
+                            oldPrimeArcs = endNode['sectorPrimeArc']
+                            oldPrimeArcs[sectorIdx] = vertexIndex
 
-                        if h < endNode['time']:
-                            vertices.iat[endNodeIndex, vertices.columns.get_loc('time')] = h
-                            vertices.iat[endNodeIndex, vertices.columns.get_loc('primeSector')] = sectorIdx
+                            vertices.iat[endNodeIndex, vertices.columns.get_loc('sectorPrimeArc')] = oldPrimeArcs
+
+                            if h < endNode['time']:
+                                vertices.iat[endNodeIndex, vertices.columns.get_loc('time')] = h
+                                vertices.iat[endNodeIndex, vertices.columns.get_loc('primeSector')] = sectorIdx
 
         else:
             # 無限ループ防止のため、最小値を取っているが今回消されなかったものは、それ以外のもののうちの最小値に強制的に合わせる。
