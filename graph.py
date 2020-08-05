@@ -3,6 +3,7 @@
 import numpy as np
 import pandas as pd
 from pykdtree.kdtree import KDTree
+from itertools import chain
 
 import gc
 import sys
@@ -71,8 +72,8 @@ def generateGraph(datadict, original_data):
             sectors = {}
             sectorNum = 0
 
-            for rootEdge in threeFaceEdges:
-                rootId = points[rootEdge[0]]
+            for rootEdge in threeFaceEdges[0]:
+                rootId = points[rootEdge]
                 rootIdStr = str(rootId)
                 rootEdgeTriangles = neighboringFaces.query('col1 == ' + rootIdStr + ' | col2 == ' + rootIdStr + ' | col3 == ' + rootIdStr)
 
@@ -106,12 +107,25 @@ def generateGraph(datadict, original_data):
 
                             ## 最初に戻ってきた場合
                             if tmp == rootId:
+                                # appendする
+                                newEdge.append(tmp)
                                 break
 
-                    if not ((newEdge[0], newEdge[1], newEdge[-1], tmp) in sectors or (tmp, newEdge[-1], newEdge[1], newEdge[0]) in sectors):
+                    if not ((newEdge[0], newEdge[1], newEdge[-2], newEdge[-1]) in sectors or (newEdge[-1], newEdge[-2], newEdge[1], newEdge[0]) in sectors):
                         sectors[(newEdge[0], newEdge[1], newEdge[-2], newEdge[-1])] = newEdge
+
+            sectorValues = sectors.values()
+
+            sectorList = list(chain.from_iterable(sectors.values()))
+
+            notIns = list(set(points.tolist()) - set(sectorList))
+
+            if len(notIns) > 0:
+                sectorValues.append(notIns)
+
+            # print index, points, counts, a, sectors.values(), rootEdge, neighboringFaces, threeFaceEdges
                 
-            return sectors.values()
+            return sectorValues
 
 
     vertices = pd.DataFrame(datadict['coords'])
@@ -120,17 +134,21 @@ def generateGraph(datadict, original_data):
     vertices['burned'] = False
     vertices['primeSector'] = None
     vertices.loc[:, 'faces'] = vertices.index.map(getFaces)
-    vertices.to_pickle('./tmp/vertices.pickle')
+    vertices.to_pickle('./tmp/faces-vertices.pickle')
+
+    # vertices = pd.read_pickle('./tmp/sectors-vertices.pickle')
 
     vertices.loc[:, 'sectors'] = vertices.apply(getSectors, axis=1)
-    vertices.to_pickle('./tmp/vertices.pickle')
+    vertices.to_pickle('./tmp/sectors-vertices.pickle')
+
+    print('a')
 
     vertices.loc[:, 'time'] = vertices.apply(getTime, axis=1)
-    vertices.to_pickle('./tmp/vertices.pickle')
+    vertices.to_pickle('./tmp/time-vertices.pickle')
 
     vertices.loc[:, 'sectorTime'] = vertices.sectors.map(getSectorTime)
     vertices.loc[:, 'sectorBurned'] = vertices.sectors.map(getBurned)
     vertices.loc[:, 'sectorPrimeArc'] = vertices.sectors.map(getPrimeArc)
 
-    vertices.to_pickle('./tmp/vertices.pickle')
+    vertices.to_pickle('./tmp/complete-vertices.pickle')
 
