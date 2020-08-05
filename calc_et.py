@@ -11,22 +11,24 @@ def calcEt(original_data):
 
     vertices = pd.read_pickle('./tmp/burned-vertices.pickle')
 
-    def getEt(row):
+    def getRadii(row):
         index = row['index']
 
         if index % 500 == 0:
             print 'et:', index
-
-        time = row['time']
         
         here = row.values[:3].reshape([1, 3]).astype(np.float32)
         neighbor, idx = point_kd_tree.query(here, k=3)
 
         radii = np.linalg.norm(here - neighbor)
 
-        return time - radii
+        return radii
+
+    def getEt(row):
+        return row['time'] - row['radii']
 
 
+    vertices.loc[:, 'radii'] = vertices.apply(getRadii, axis=1)
     vertices.loc[:, 'et'] = vertices.apply(getEt, axis=1)
 
     vertices.to_pickle('./tmp/et-vertices.pickle')

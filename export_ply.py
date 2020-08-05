@@ -15,7 +15,7 @@ def generatePly():
             while True:
                 line = f.readline()
 
-                f_out.write(line + '\n')
+                f_out.write(line)
 
                 if line.startswith("element vertex"):
 				    vertexcount = line.split()[-1]
@@ -31,8 +31,11 @@ def generatePly():
                 if line.startswith("element face"):
 				    facecount = line.split()[-1]
 
-            max_value = vertices.loc[vertices['et'] != float('inf')].max()
-            min_value = vertices.loc[vertices['et'] > 0].min()
+            max_value = vertices.loc[vertices['et'] != float('inf')].max()['et']
+            min_value = vertices.loc[vertices['et'] > 0].min()['et']
+
+            print min_value, max_value
+
             length = max_value - min_value
             median = (max_value + min_value) / 2
 
@@ -41,35 +44,33 @@ def generatePly():
                     return ('0', '0', '0')
                 if (val > median):
                     prop = (val - median) * 2 / length
-                    red = round(255 * (1 - prop))
-                    green = round(255 * prop)
+                    red = int(round(255 * prop))
+                    green = int(round(255 * (1 - prop)))
                     return (str(red), str(green), '0')
                 else:
                     prop = (median - val) * 2 / length
-                    blue = round(255 * (1 - prop))
-                    green = round(255 * prop)
+                    blue = int(round(255 * prop))
+                    green = int(round(255 * (1 - prop)))
                     return ('0', str(green), str(blue))
 
             for i in xrange(int(vertexcount)):
                 if i % 500 == 0:
                     print 'vertex:', i
-                text = f.readline()
+                line = f.readline()
 
                 vertex = vertices.loc[i]
 
                 et = vertex['et']
 
-                print et
-
                 r, g, b = getColor(et)
 
-                f_out.write(text + ' ' + r + ' ' + g + ' ' + b + '\n')
+                f_out.write(line.replace('\n','') + ' ' + r + ' ' + g + ' ' + b + '\n')
 
             for j in xrange(int(facecount)):
                 if j % 500 == 0:
                     print 'face:', j
                 text = f.readline()
-                f_out.write(text + '\n')
+                f_out.write(text)
 
 if __name__ == '__main__':
     generatePly()
