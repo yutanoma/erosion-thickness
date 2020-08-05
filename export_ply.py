@@ -45,7 +45,7 @@ def generatePly():
             def getColor(val):
                 if (val > max_value or val < min_value):
                     return ('0', '0', '0', '0')
-                if (threshold_mode and (max_value * 0.3 + min_value * 0.7) > val):
+                if (threshold_mode and (max_value * 0.2 + min_value * 0.8) > val):
                     return ('0', '0', '0', '0')
                 if (val > median):
                     prop = (val - median) * 2 / length
